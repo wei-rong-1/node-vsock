@@ -10,8 +10,12 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 
 [dependencies]
+byteorder = "1.4.3"
+clap = "4.2.7"
+log = "0.4.17"
 napi        = "2"
 napi-derive = "2"
+nix = "0.26.2"
 
 [build-dependencies]
 napi-build = "2"

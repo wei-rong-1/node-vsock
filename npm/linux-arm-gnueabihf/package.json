@@ -1,5 +1,5 @@
 {
-  "name": "@napi-rs/package-template-linux-arm-gnueabihf",
+  "name": "node-vsock-linux-arm-gnueabihf",
   "version": "1.0.0",
   "os": [
     "linux"
@@ -7,9 +7,9 @@
   "cpu": [
     "arm"
   ],
-  "main": "package-template.linux-arm-gnueabihf.node",
+  "main": "node-vsock.linux-arm-gnueabihf.node",
   "files": [
-    "package-template.linux-arm-gnueabihf.node"
+    "node-vsock.linux-arm-gnueabihf.node"
   ],
   "description": "Template project for writing node package with napi-rs",
   "keywords": [

@@ -1,5 +1,5 @@
 {
-  "name": "@napi-rs/package-template",
+  "name": "node-vsock",
   "version": "1.0.0",
   "description": "Template project for writing node package with napi-rs",
   "main": "index.js",
@@ -18,7 +18,7 @@
     "index.js"
   ],
   "napi": {
-    "name": "package-template",
+    "name": "node-vsock",
     "triples": {
       "defaults": true,
       "additional": [
@@ -106,6 +106,5 @@
     "trailingComma": "all",
     "singleQuote": true,
     "arrowParens": "always"
-  },
-  "packageManager": "yarn@3.4.1"
+  }
 }
