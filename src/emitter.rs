@@ -1,5 +1,9 @@
 use crate::util::error;
-use napi::{Env, JsFunction, JsUnknown, Ref, Result};
+use napi::{
+  bindgen_prelude::*,
+  threadsafe_function::{ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction},
+  Env, JsFunction, JsUnknown, Ref, Result,
+};
 
 pub(crate) struct Emitter {
   env: Env,
@@ -41,6 +45,22 @@ impl Emitter {
     }
 
     Ok(())
+  }
+
+  pub fn thread_safe_emit<T, V, F>(&mut self, finalize: F) -> Result<ThreadsafeFunction<T>>
+  where
+    F: 'static + Send + Fn(ThreadSafeCallContext<T>) -> Result<Vec<V>>,
+    V: ToNapiValue,
+  {
+    self.check_ref()?;
+
+    let env = self.env;
+    let emit_ref = self.emit_ref.as_mut().unwrap();
+    let emit_fn: JsFunction = env.get_reference_value(emit_ref)?;
+    let emit_ts_fn: ThreadsafeFunction<T, ErrorStrategy::CalleeHandled> =
+      emit_fn.create_threadsafe_function(0, finalize)?;
+
+    Ok(emit_ts_fn)
   }
 
   pub fn emit(&mut self, args: &[JsUnknown]) -> Result<()> {

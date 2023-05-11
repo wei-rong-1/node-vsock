@@ -2,6 +2,7 @@ use crate::emitter::Emitter;
 use crate::util::{error, nix_error};
 
 use byteorder::{ByteOrder, LittleEndian};
+use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
 use napi::{Env, JsBuffer, JsFunction, JsNumber, JsString, JsUnknown, Result};
 use nix::sys::socket::listen as listen_vsock;
 use nix::sys::socket::{accept, bind, connect, recv, send, shutdown, socket};
@@ -10,6 +11,7 @@ use nix::unistd::close as close_vsock;
 use std::convert::TryInto;
 use std::mem::size_of;
 use std::os::unix::io::{AsRawFd, RawFd};
+use std::thread;
 
 // VSOCK defaut listen cid
 const VMADDR_CID_ANY: u32 = 0xFFFFFFFF;
@@ -109,33 +111,26 @@ impl VsockSocket {
 
     listen_vsock(server_fd, BACKLOG).map_err(|err| error(format!("Listen failed: {:?}", err)))?;
 
-    loop {
-      let env = self.env;
-      let fd = match accept(self.fd) {
+    let server_fd = self.fd.clone();
+    let emit_error = self.thread_safe_emit_error()?;
+    let emit_connection = self.thread_safe_emit_connection()?;
+
+    thread::spawn(move || loop {
+      let fd = match accept(server_fd) {
         Ok(fd) => fd,
         Err(err) => {
-          self.emit_error(nix_error(err));
+          emit_error.call(
+            Ok(format!("Accept connection failed: {0}", err)),
+            ThreadsafeFunctionCallMode::Blocking,
+          );
           continue;
         }
       };
 
-      match env.run_in_scope(|| {
-        let mut args: Vec<JsUnknown> = vec![];
-        let js_event = env.create_string("_connection")?;
-        args.push(js_event.into_unknown());
-        let js_fd = env.create_int32(fd)?;
-        args.push(js_fd.into_unknown());
-        self.emitter.emit(&args)?;
-        Ok(())
-      }) {
-        Ok(_) => {}
-        Err(err) => {
-          env
-            .throw_error(&err.reason, None)
-            .unwrap_or_else(|e| eprintln!("Emit _connection event failed: {:?}", e));
-        }
-      }
-    }
+      emit_connection.call(Ok(fd), ThreadsafeFunctionCallMode::Blocking);
+    });
+
+    Ok(())
   }
 
   #[napi]
@@ -177,42 +172,38 @@ impl VsockSocket {
 
   #[napi]
   pub fn start_recv(&mut self) -> Result<()> {
-    loop {
-      let env = self.env;
-      let fd = self.fd;
+    let fd = self.fd.clone();
+    let emit_error = self.thread_safe_emit_error()?;
+    let emit_data = self.thread_safe_emit_data()?;
+
+    // TODO: should optimize: read len + read data
+    thread::spawn(move || loop {
       let len = match recv_u64(fd) {
         Ok(len) => len,
         Err(err) => {
-          self.emit_error(err);
+          emit_error.call(
+            Ok(format!("Read data length failed: {0}", err)),
+            ThreadsafeFunctionCallMode::Blocking,
+          );
           continue;
         }
       };
 
       let mut buf = [0u8; BUF_MAX_LEN];
       match recv_loop(fd, &mut buf, len) {
-        Ok(_) => {
-          match env.run_in_scope(|| {
-            let mut args: Vec<JsUnknown> = vec![];
-            let js_event = env.create_string("_data")?;
-            args.push(js_event.into_unknown());
-            // buf[0..len].to_vec()
-            // String::from_utf8(buf.to_vec()).map_err(|err| error(format!("The received bytes are not UTF-8: {:?}", err)))?
-            let js_buf = env.create_buffer_with_data(buf.to_vec())?;
-            args.push(js_buf.into_unknown());
-            self.emitter.emit(&args)?;
-            Ok(())
-          }) {
-            Ok(_) => {}
-            Err(err) => {
-              self.emit_error(err);
-            }
-          }
-        }
+        Ok(_) => {}
         Err(err) => {
-          self.emit_error(err);
+          emit_error.call(
+            Ok(format!("Read data failed: {0}", err)),
+            ThreadsafeFunctionCallMode::Blocking,
+          );
+          continue;
         }
       }
-    }
+      emit_data.call(Ok(buf.to_vec()), ThreadsafeFunctionCallMode::Blocking);
+    });
+
+    Ok(())
   }
 
   pub fn write(&mut self, buf: &[u8], len: u64) -> Result<()> {
@@ -253,21 +244,45 @@ impl VsockSocket {
     self.write(buf, len)
   }
 
-  fn emit_error(&mut self, error: napi::Error) {
-    let env = self.env;
+  fn thread_safe_emit_connection(&mut self) -> Result<ThreadsafeFunction<i32>> {
+    self.emitter.thread_safe_emit(|ctx| {
+      // ctx.env.run_in_scope(|| {
+      let fd = ctx.value;
+      let mut args: Vec<JsUnknown> = vec![];
+      let js_event = ctx.env.create_string("_connection")?;
+      args.push(js_event.into_unknown());
+      let js_fd = ctx.env.create_int32(fd)?;
+      args.push(js_fd.into_unknown());
+      Ok(args)
+      // })
+    })
+  }
 
-    // TODO unwrap should be replaced with log
-    env
-      .run_in_scope(|| {
-        let event = env.create_string("_error").unwrap();
-        let error = self.env.create_error(error).unwrap();
-        self
-          .emitter
-          .emit(&[event.into_unknown(), error.into_unknown()])
-          .unwrap();
-        Ok(())
-      })
-      .unwrap();
+  fn thread_safe_emit_data(&mut self) -> Result<ThreadsafeFunction<Vec<u8>>> {
+    self.emitter.thread_safe_emit(|ctx| {
+      // ctx.env.run_in_scope(|| {
+      let buf = ctx.value;
+      let mut args: Vec<JsUnknown> = vec![];
+      let js_event = ctx.env.create_string("_data")?;
+      args.push(js_event.into_unknown());
+      // String::from_utf8(buf.to_vec()).map_err(|err| error(format!("The received bytes are not UTF-8: {:?}", err)))?
+      let js_buf = ctx.env.create_buffer_with_data(buf)?;
+      args.push(js_buf.into_unknown());
+      Ok(args)
+      // })
+    })
+  }
+
+  fn thread_safe_emit_error(&mut self) -> Result<ThreadsafeFunction<String>> {
+    self.emitter.thread_safe_emit(|ctx| {
+      // ctx.env.run_in_scope(|| {
+      let err = error(ctx.value);
+      Ok(vec![
+        ctx.env.create_string("_error").unwrap().into_unknown(),
+        ctx.env.create_error(err).unwrap().into_unknown(),
+      ])
+      // })
+    })
   }
 }
 
