@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+
+FROM node:16
+
+COPY ../addon.js .
+COPY ../dist/index.js .
+COPY ../dist/sample/client.js .
+
+CMD ["node", "client.js"]
