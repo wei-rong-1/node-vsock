@@ -6,14 +6,19 @@ export type Callback = () => void;
 export class VsockServer extends EventEmitter {
   private closed: boolean = false;
   private socket: VsockSocketAddon;
+  public listening: boolean = false;
 
   constructor() {
     super();
 
     const emit = this.emit = this.emit.bind(this);
     this.socket = new VsockSocketAddon(function (err: Error, eventName: string, ...args) {
-      console.log("server event: ", err, eventName, args)
-      emit(eventName, ...args);
+      if (err) {
+        err.message += `(server socket event: ${eventName})`;
+        emit('error', err);
+      } else {
+        emit(eventName, ...args);
+      }
     });
 
     this.on('_connection', this.onConnection);
@@ -21,8 +26,11 @@ export class VsockServer extends EventEmitter {
   }
 
   private onError = (err: Error) => {
-    // TODO test this
-    this.emit('error', err);
+    process.nextTick(() => {
+      // unhandled error emitted from emitter will cause stopping process.
+      // server have to listen on 'error' event to bypass this problem now.
+      this.emit('error', err);
+    });
   };
 
   private onConnection = (fd: number) => {
@@ -35,6 +43,7 @@ export class VsockServer extends EventEmitter {
       return;
     }
 
+    this.listening = false;
     this.closed = true;
     this.socket.close();
   }
@@ -44,8 +53,8 @@ export class VsockServer extends EventEmitter {
       throw new Error('Socket has been closed');
     }
 
-    // TODO may be error
     this.socket.listen(port);
+    this.listening = true;
   }
 }
 
@@ -53,20 +62,24 @@ export class VsockSocket extends EventEmitter {
   private socket: VsockSocketAddon;
   private connectCallback?: Callback;
   private shutdownCallback?: Callback;
-  private isDestroyed: boolean = false;
-  private isShutdown: boolean = false;
-  private isEnd: boolean = false
+  private _isShutdown: boolean = false;
+  private _isEnd: boolean = false;
+  public destroyed: boolean = false;
+  public connecting: boolean = false;
 
   constructor(fd?: number) {
     super();
 
     const emit = this.emit = this.emit.bind(this);
     this.socket = new VsockSocketAddon(function (err: Error, eventName: string, ...args) {
-      console.log("socket event: ", err, eventName, args)
-      emit(eventName, ...args);
+      if (err) {
+        err.message += `(socket event: ${eventName})`;
+        emit('error', err);
+      } else {
+        emit(eventName, ...args);
+      }
     }, fd);
 
-    // TODO may be error
     if (fd) {
       this.socket.startRecv();
     }
@@ -79,13 +92,13 @@ export class VsockSocket extends EventEmitter {
   }
 
   private checkDestroyed() {
-    if (this.isDestroyed) {
+    if (this.destroyed) {
       throw new Error('Socket has been destroyed');
     }
   }
 
   private tryClose() {
-    if (this.isEnd && this.isShutdown) {
+    if (this._isEnd && this._isShutdown) {
       this.destroy()
     }
   }
@@ -103,12 +116,12 @@ export class VsockSocket extends EventEmitter {
   };
 
   private onEnd = () => {
-    this.isEnd = true;
+    this._isEnd = true;
     this.tryClose();
   }
 
   private onShutdown = () => {
-    this.isShutdown = true;
+    this._isShutdown = true;
     this.tryClose();
 
     if (this.shutdownCallback) {
@@ -117,6 +130,7 @@ export class VsockSocket extends EventEmitter {
   };
 
   private onConnect = () => {
+    this.connecting = false;
     this.emit('connect');
     this.socket.startRecv();
 
@@ -127,6 +141,7 @@ export class VsockSocket extends EventEmitter {
 
   connect(cid: number, port: number, connectCallback?: Callback) {
     this.checkDestroyed();
+    this.connecting = true;
     this.connectCallback = connectCallback;
 
     this.socket.connect(cid, port);
@@ -150,11 +165,11 @@ export class VsockSocket extends EventEmitter {
   }
 
   destroy() {
-    if (this.isDestroyed) {
+    if (this.destroyed) {
       return;
     }
 
-    this.isDestroyed = true;
+    this.destroyed = true;
     this.socket.close();
   }
 }

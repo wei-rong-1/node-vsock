@@ -1,7 +1,6 @@
 use crate::emitter::Emitter;
 use crate::util::{error, nix_error};
 
-use byteorder::{ByteOrder, LittleEndian};
 use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
 use napi::{Env, JsBuffer, JsFunction, JsNumber, JsString, JsUnknown, Result};
 use nix::errno::Errno;
@@ -10,7 +9,6 @@ use nix::sys::socket::{accept, bind, connect, recv, send, shutdown, socket};
 use nix::sys::socket::{AddressFamily, MsgFlags, Shutdown, SockFlag, SockType, VsockAddr};
 use nix::unistd::close as close_vsock;
 use std::convert::TryInto;
-use std::mem::size_of;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::thread;
 
@@ -29,66 +27,10 @@ const MAX_CONNECTION_ATTEMPTS: usize = 5;
 #[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone)]
 enum State {
   Initialized = 1,
-  // /**
-  //  * Socket is marked to be shut down(write end).
-  //  */
   // ShuttingDown = 2,
-  // /**
-  //  * Socket shut down(write end).
-  //  */
   ShutDown = 3,
-  // // Stopped = 4,
-  // /**
-  //  * Both read side and write side of the socket have been closed.
-  //  */
   Closed = 5,
 }
-
-// fn send_u64(fd: RawFd, val: u64) -> Result<()> {
-//   let mut buf = [0u8; size_of::<u64>()];
-//   LittleEndian::write_u64(&mut buf, val);
-//   send_loop(fd, &buf, size_of::<u64>().try_into().unwrap())?;
-//   Ok(())
-// }
-
-// fn recv_u64(fd: RawFd) -> Result<u64> {
-//   let mut buf = [0u8; size_of::<u64>()];
-//   recv_loop(fd, &mut buf, size_of::<u64>().try_into().unwrap())?;
-//   let val = LittleEndian::read_u64(&buf);
-//   Ok(val)
-// }
-
-fn send_loop(fd: RawFd, buf: &[u8], len: u64) -> Result<()> {
-  let len: usize = len.try_into().map_err(|err| error(format!("{:?}", err)))?;
-  let mut send_bytes = 0;
-
-  while send_bytes < len {
-    let size = match send(fd, &buf[send_bytes..len], MsgFlags::empty()) {
-      Ok(size) => size,
-      Err(nix::Error::EINTR) => 0,
-      Err(err) => return Err(error(format!("send data failed {:?}", err))),
-    };
-    send_bytes += size;
-  }
-
-  Ok(())
-}
-
-// fn recv_loop(fd: RawFd, buf: &mut [u8], len: u64) -> Result<()> {
-//   let len: usize = len.try_into().map_err(|err| error(format!("{:?}", err)))?;
-//   let mut recv_bytes = 0;
-
-//   while recv_bytes < len {
-//     let size = match recv(fd, &mut buf[recv_bytes..len], MsgFlags::empty()) {
-//       Ok(size) => size,
-//       Err(nix::Error::EINTR) => 0,
-//       Err(err) => return Err(error(format!("recv data failed: {:?}", err))),
-//     };
-//     recv_bytes += size;
-//   }
-
-//   Ok(())
-// }
 
 #[napi]
 pub struct VsockSocket {
@@ -168,22 +110,24 @@ impl VsockSocket {
     let emit_connect = self.thread_safe_emit_connect()?;
 
     thread::spawn(move || {
-      let mut err_msg = String::new();
+      let mut err_msg: Option<String> = None;
       for i in 0..MAX_CONNECTION_ATTEMPTS {
         match connect(fd, &sockaddr) {
           Ok(_) => {
             emit_connect.call(Ok(()), ThreadsafeFunctionCallMode::Blocking);
             break;
           }
-          Err(e) => {
-            err_msg = format!("Connect socket failed: {}", e);
+          Err(err) => {
+            err_msg = Some(format!("Connect socket failed: {}", err));
           }
         }
         // Exponentially backoff before retrying to connect to the socket
         std::thread::sleep(std::time::Duration::from_secs(1 << i));
       }
 
-      emit_error.call(Ok(err_msg), ThreadsafeFunctionCallMode::Blocking);
+      if err_msg.is_some() {
+        emit_error.call(Ok(err_msg.unwrap()), ThreadsafeFunctionCallMode::Blocking);
+      }
     });
 
     Ok(())
@@ -197,6 +141,10 @@ impl VsockSocket {
 
   #[napi]
   pub fn shutdown(&mut self) -> Result<()> {
+    if self.state >= State::ShutDown {
+      return Ok(())
+    }
+
     shutdown(self.fd, Shutdown::Both).map_err(|err| nix_error(err))?;
     self.state = State::ShutDown;
     self.emitter.emit_event("_shutdown")?;
@@ -264,10 +212,8 @@ impl VsockSocket {
         emit_data.call(Ok(buf), ThreadsafeFunctionCallMode::Blocking);
       } else if ret < 0 {
         if ret_err == Errno::EAGAIN || ret_err == Errno::EWOULDBLOCK {
-          // reset?
-          // self.poll_events |= sys::uv_poll_event::UV_READABLE as i32;
-          // self.reset_poll()?;
-          // break;
+          // retry?
+          continue;
         } else {
           emit_error.call(
             Ok(format!("read data failed: {0}", ret_err)),
@@ -276,9 +222,8 @@ impl VsockSocket {
           break;
         }
       } else {
-        // if ret == 0
+        // when ret == 0
         emit_end.call(Ok(()), ThreadsafeFunctionCallMode::Blocking);
-        // self.reset_poll()?;
         break;
       }
     });
@@ -287,15 +232,20 @@ impl VsockSocket {
   }
 
   pub fn write(&mut self, buf: &[u8], len: u64) -> Result<()> {
-    if self.state >= State::Initialized {
+    if self.state > State::Initialized {
       return Err(error(format!("can't write, bad state")));
     }
 
-    let fd = self.as_raw_fd();
-    // send_u64(fd, len)
-    //   .map_err(|err| error(format!("Failed to send buffer's length data {:?}", err)))?;
-    send_loop(fd, buf, len)
-      .map_err(|err| error(format!("Failed to send buffer data {:?}", err)))?;
+    let len: usize = len.try_into().map_err(|err| error(format!("{:?}", err)))?;
+    let mut send_bytes = 0;
+    while send_bytes < len {
+      let size = match send(self.fd, &buf[send_bytes..len], MsgFlags::empty()) {
+        Ok(size) => size,
+        Err(nix::Error::EINTR) => 0,
+        Err(err) => return Err(error(format!("send data failed {:?}", err))),
+      };
+      send_bytes += size;
+    }
 
     Ok(())
   }
@@ -361,7 +311,6 @@ impl VsockSocket {
       let mut args: Vec<JsUnknown> = vec![];
       let js_event = ctx.env.create_string("_data")?;
       args.push(js_event.into_unknown());
-      // String::from_utf8(buf.to_vec()).map_err(|err| error(format!("The received bytes are not UTF-8: {:?}", err)))?
       let js_buf = ctx.env.create_buffer_with_data(buf)?;
       args.push(js_buf.into_unknown());
       Ok(args)
