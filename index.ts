@@ -10,8 +10,11 @@ export class VsockServer extends EventEmitter {
   constructor() {
     super();
 
-    this.emit = this.emit.bind(this);
-    this.socket = new VsockSocketAddon(this.emit);
+    const emit = this.emit = this.emit.bind(this);
+    this.socket = new VsockSocketAddon(function (err: Error, eventName: string, ...args) {
+      console.log("server event: ", err, eventName, args)
+      emit(eventName, ...args);
+    });
 
     this.on('_connection', this.onConnection);
     this.on('_error', this.onError);
@@ -48,14 +51,20 @@ export class VsockServer extends EventEmitter {
 
 export class VsockSocket extends EventEmitter {
   private socket: VsockSocketAddon;
-  private destroyed: boolean = false;
   private connectCallback?: Callback;
+  private shutdownCallback?: Callback;
+  private isDestroyed: boolean = false;
+  private isShutdown: boolean = false;
+  private isEnd: boolean = false
 
   constructor(fd?: number) {
     super();
 
-    this.emit = this.emit.bind(this);
-    this.socket = new VsockSocketAddon(this.emit, fd);
+    const emit = this.emit = this.emit.bind(this);
+    this.socket = new VsockSocketAddon(function (err: Error, eventName: string, ...args) {
+      console.log("socket event: ", err, eventName, args)
+      emit(eventName, ...args);
+    }, fd);
 
     // TODO may be error
     if (fd) {
@@ -65,23 +74,46 @@ export class VsockSocket extends EventEmitter {
     this.on('_data', this.onData);
     this.on('_connect', this.onConnect);
     this.on('_error', this.onError);
+    this.on('_shutdown', this.onShutdown);
+    this.on('end', this.onEnd);
+  }
+
+  private checkDestroyed() {
+    if (this.isDestroyed) {
+      throw new Error('Socket has been destroyed');
+    }
+  }
+
+  private tryClose() {
+    if (this.isEnd && this.isShutdown) {
+      this.destroy()
+    }
   }
 
   private onData = (buf: Buffer) => {
     this.emit('data', buf);
   };
 
-  private checkDestroyed() {
-    if (this.destroyed) {
-      throw new Error('Socket has been destroyed');
-    }
-  }
-
   private onError = (err: Error) => {
     process.nextTick(() => {
+      // unhandled error emitted from emitter will cause stopping process.
+      // incoming socket have to listen on 'error' event to bypass this problem now.
       this.emit('error', err);
-      this.destroy();
     });
+  };
+
+  private onEnd = () => {
+    this.isEnd = true;
+    this.tryClose();
+  }
+
+  private onShutdown = () => {
+    this.isShutdown = true;
+    this.tryClose();
+
+    if (this.shutdownCallback) {
+      this.shutdownCallback();
+    }
   };
 
   private onConnect = () => {
@@ -112,12 +144,17 @@ export class VsockSocket extends EventEmitter {
     this.socket.writeText(data);
   }
 
+  end(callback?: Callback) {
+    this.shutdownCallback = callback;
+    this.socket.end();
+  }
+
   destroy() {
-    if (this.destroyed) {
+    if (this.isDestroyed) {
       return;
     }
 
-    this.destroyed = true;
+    this.isDestroyed = true;
     this.socket.close();
   }
 }

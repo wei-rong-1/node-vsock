@@ -63,7 +63,7 @@ impl Emitter {
     Ok(emit_ts_fn)
   }
 
-  pub fn emit(&mut self, args: &[JsUnknown]) -> Result<()> {
+  pub fn emit(&mut self, args: &mut Vec<JsUnknown>) -> Result<()> {
     self.check_ref()?;
 
     let env = self.env;
@@ -71,7 +71,9 @@ impl Emitter {
     env.run_in_scope(|| {
       let emit_ref = self.emit_ref.as_mut().unwrap();
       let emit: JsFunction = env.get_reference_value(emit_ref)?;
-      emit.call(None, args)?;
+      let js_null: napi::JsNull = env.get_null()?;
+      args.insert(0, js_null.into_unknown());
+      emit.call(None, &args)?;
       Ok(())
     })?;
 
@@ -85,7 +87,7 @@ impl Emitter {
       let mut args: Vec<JsUnknown> = vec![];
       args.push(js_event.into_unknown());
 
-      self.emit(&args)
+      self.emit(&mut args)
     })?;
     Ok(())
   }

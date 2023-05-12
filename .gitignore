@@ -120,6 +120,7 @@ dist
 Cargo.lock
 
 *.node
+*.eif
 .pnp.*
 .yarn/*
 !.yarn/patches
