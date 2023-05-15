@@ -104,12 +104,5 @@
     "trailingComma": "all",
     "singleQuote": true,
     "arrowParens": "always"
-  },
-  "optionalDependencies": {
-    "node-vsock-linux-arm-gnueabihf": "0.0.1",
-    "node-vsock-linux-arm64-musl": "0.0.1",
-    "node-vsock-linux-arm64-gnu": "0.0.1",
-    "node-vsock-linux-x64-musl": "0.0.1",
-    "node-vsock-linux-x64-gnu": "0.0.1"
   }
 }
