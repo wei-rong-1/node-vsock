@@ -122,6 +122,8 @@ Cargo.lock
 sample/**/*.js
 index.d.ts
 index.js
+__test__/**/*.d.ts
+__test__/**/*.js
 
 *.node
 *.eif

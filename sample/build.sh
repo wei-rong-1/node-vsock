@@ -5,8 +5,8 @@ cd ..
 yarn build:all
 yarn pack
 mkdir -p sample/tmp/
-mv *.tgz sample/tmp/node-vsock.tgz
-mv *.node sample/tmp/
+mv -f *.tgz sample/tmp/node-vsock.tgz
+cp -f *.node sample/tmp/
 
 if [ "$1" == "preinstall" ]; then
   exit 0
