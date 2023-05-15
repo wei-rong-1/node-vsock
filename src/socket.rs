@@ -8,6 +8,7 @@ use nix::sys::socket::listen as listen_vsock;
 use nix::sys::socket::{accept, bind, connect, recv, send, shutdown, socket};
 use nix::sys::socket::{AddressFamily, MsgFlags, Shutdown, SockFlag, SockType, VsockAddr};
 use nix::unistd::close as close_vsock;
+use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::thread;
@@ -51,7 +52,7 @@ impl VsockSocket {
         SockFlag::empty(),
         None,
       )
-      .map_err(|err| nix_error(err))?,
+      .map_err(nix_error)?,
     };
 
     Ok(Self {
@@ -72,7 +73,7 @@ impl VsockSocket {
 
     listen_vsock(server_fd, BACKLOG).map_err(|err| error(format!("Listen failed: {:?}", err)))?;
 
-    let server_fd = self.fd.clone();
+    let server_fd = self.fd;
     let emit_error = self.thread_safe_emit_error()?;
     let emit_connection = self.thread_safe_emit_connection()?;
 
@@ -105,7 +106,7 @@ impl VsockSocket {
     let cid = cid.get_uint32()?;
     let port = port.get_uint32()?;
     let sockaddr = VsockAddr::new(cid, port);
-    let fd = self.fd.clone();
+    let fd = self.fd;
     let emit_error = self.thread_safe_emit_error()?;
     let emit_connect = self.thread_safe_emit_connect()?;
 
@@ -125,8 +126,8 @@ impl VsockSocket {
         std::thread::sleep(std::time::Duration::from_secs(1 << i));
       }
 
-      if err_msg.is_some() {
-        emit_error.call(Ok(err_msg.unwrap()), ThreadsafeFunctionCallMode::Blocking);
+      if let Some(err_msg) = err_msg {
+        emit_error.call(Ok(err_msg), ThreadsafeFunctionCallMode::Blocking);
       }
     });
 
@@ -142,10 +143,10 @@ impl VsockSocket {
   #[napi]
   pub fn shutdown(&mut self) -> Result<()> {
     if self.state >= State::ShutDown {
-      return Ok(())
+      return Ok(());
     }
 
-    shutdown(self.fd, Shutdown::Both).map_err(|err| nix_error(err))?;
+    shutdown(self.fd, Shutdown::Both).map_err(nix_error)?;
     self.state = State::ShutDown;
     self.emitter.emit_event("_shutdown")?;
     Ok(())
@@ -159,7 +160,7 @@ impl VsockSocket {
 
     self.state = State::Closed;
 
-    close_vsock(self.fd).map_err(|err| nix_error(err))?;
+    close_vsock(self.fd).map_err(nix_error)?;
 
     self.emitter.emit_event("close")?;
     self.emitter.unref()?;
@@ -170,7 +171,7 @@ impl VsockSocket {
   #[napi]
   pub fn start_recv(&mut self) -> Result<()> {
     if self.state > State::Initialized {
-      return Err(error(format!("can't start recv, bad state")));
+      return Err(error("can't start recv, bad state".to_string()));
     }
 
     self.hundle_recv()?;
@@ -179,7 +180,7 @@ impl VsockSocket {
   }
 
   pub fn hundle_recv(&mut self) -> Result<()> {
-    let fd = self.fd.clone();
+    let fd = self.fd;
     let emit_error = self.thread_safe_emit_error()?;
     let emit_data = self.thread_safe_emit_data()?;
     let emit_end = self.thread_safe_emit_end()?;
@@ -205,26 +206,30 @@ impl VsockSocket {
         break;
       }
 
-      if ret > 0 {
-        let size = ret as usize;
-        let buf = buf[0..size].to_vec();
-        println!("rs emit data {0}", String::from_utf8(buf.clone()).unwrap());
-        emit_data.call(Ok(buf), ThreadsafeFunctionCallMode::Blocking);
-      } else if ret < 0 {
-        if ret_err == Errno::EAGAIN || ret_err == Errno::EWOULDBLOCK {
-          // retry?
-          continue;
-        } else {
-          emit_error.call(
-            Ok(format!("read data failed: {0}", ret_err)),
-            ThreadsafeFunctionCallMode::Blocking,
-          );
+      match ret.cmp(&0) {
+        Ordering::Greater => {
+          let size = ret as usize;
+          let buf = buf[0..size].to_vec();
+          println!("rs emit data {0}", String::from_utf8(buf.clone()).unwrap());
+          emit_data.call(Ok(buf), ThreadsafeFunctionCallMode::Blocking);
+        }
+        Ordering::Less => {
+          if ret_err == Errno::EAGAIN || ret_err == Errno::EWOULDBLOCK {
+            // retry?
+            continue;
+          } else {
+            emit_error.call(
+              Ok(format!("read data failed: {0}", ret_err)),
+              ThreadsafeFunctionCallMode::Blocking,
+            );
+            break;
+          }
+        }
+        Ordering::Equal => {
+          // when ret == 0
+          emit_end.call(Ok(()), ThreadsafeFunctionCallMode::Blocking);
           break;
         }
-      } else {
-        // when ret == 0
-        emit_end.call(Ok(()), ThreadsafeFunctionCallMode::Blocking);
-        break;
       }
     });
 
@@ -233,7 +238,7 @@ impl VsockSocket {
 
   pub fn write(&mut self, buf: &[u8], len: u64) -> Result<()> {
     if self.state > State::Initialized {
-      return Err(error(format!("can't write, bad state")));
+      return Err(error("can't write, bad state".to_string()));
     }
 
     let len: usize = len.try_into().map_err(|err| error(format!("{:?}", err)))?;

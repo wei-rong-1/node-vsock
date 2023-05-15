@@ -1,15 +1,15 @@
 {
-  "name": "node-vsock-win32-x64-msvc",
+  "name": "node-vsock-darwin-x64",
   "version": "1.0.0",
   "os": [
-    "win32"
+    "darwin"
   ],
   "cpu": [
     "x64"
   ],
-  "main": "node-vsock.win32-x64-msvc.node",
+  "main": "node-vsock.darwin-x64.node",
   "files": [
-    "node-vsock.win32-x64-msvc.node"
+    "node-vsock.darwin-x64.node"
   ],
   "description": "A Node.js addon for VSOCK socket.",
   "license": "MIT",

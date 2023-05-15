@@ -13,7 +13,11 @@ env:
   node: true
   jest: true
 
-ignorePatterns: ['index.js']
+ignorePatterns:
+  - index.js
+  - dist/**/*
+  - __test__/**/*
+  - sample/**/*
 
 plugins:
   - import

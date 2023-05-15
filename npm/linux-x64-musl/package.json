@@ -11,24 +11,16 @@
   "files": [
     "node-vsock.linux-x64-musl.node"
   ],
-  "description": "Template project for writing node package with napi-rs",
-  "keywords": [
-    "napi-rs",
-    "NAPI",
-    "N-API",
-    "Rust",
-    "node-addon",
-    "node-addon-api"
-  ],
+  "description": "A Node.js addon for VSOCK socket.",
   "license": "MIT",
   "engines": {
-    "node": ">= 10"
+    "node": ">= 11.8.0"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-  "repository": "git@github.com:napi-rs/package-template.git",
+  "repository": "https://github.com/wei-rong-1/node-vsock",
   "libc": [
     "musl"
   ]

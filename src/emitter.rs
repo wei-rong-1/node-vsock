@@ -73,7 +73,7 @@ impl Emitter {
       let emit: JsFunction = env.get_reference_value(emit_ref)?;
       let js_null: napi::JsNull = env.get_null()?;
       args.insert(0, js_null.into_unknown());
-      emit.call(None, &args)?;
+      emit.call(None, args)?;
       Ok(())
     })?;
 

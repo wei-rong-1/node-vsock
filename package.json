@@ -1,17 +1,15 @@
 {
   "name": "node-vsock",
-  "version": "1.0.0",
-  "description": "Template project for writing node package with napi-rs",
+  "version": "0.0.1",
+  "description": "A Node.js addon for VSOCK socket.",
   "main": "index.js",
-  "repository": "git@github.com:napi-rs/package-template.git",
+  "repository": "https://github.com/wei-rong-1/node-vsock",
   "license": "MIT",
   "keywords": [
-    "napi-rs",
-    "NAPI",
-    "N-API",
+    "VSOCK",
+    "Sockets",
     "Rust",
-    "node-addon",
-    "node-addon-api"
+    "node-addon"
   ],
   "files": [
     "index.ts"
@@ -40,7 +38,6 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "bench": "node -r @swc-node/register benchmark/bench.ts",
     "build": "npm run build:addon && npm run build:ts",
     "build:addon": "napi build --platform --release --js \"addon.js\" --dts \"addon.d.ts\" --pipe \"prettier -w\"",
     "build:addon:debug": "napi build --platform --js \"addon.js\" --dts \"addon.d.ts\" --pipe \"prettier -w\"",

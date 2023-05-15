@@ -1,15 +1,15 @@
 {
-  "name": "node-vsock-win32-x64-msvc",
+  "name": "node-vsock-android-arm64",
   "version": "1.0.0",
   "os": [
-    "win32"
+    "android"
   ],
   "cpu": [
-    "x64"
+    "arm64"
   ],
-  "main": "node-vsock.win32-x64-msvc.node",
+  "main": "node-vsock.android-arm64.node",
   "files": [
-    "node-vsock.win32-x64-msvc.node"
+    "node-vsock.android-arm64.node"
   ],
   "description": "A Node.js addon for VSOCK socket.",
   "license": "MIT",
