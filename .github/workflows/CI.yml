@@ -244,7 +244,7 @@ jobs:
   #         name: bindings-${{ matrix.settings.target }}
   #         path: .
   #     - name: List packages
-  #       run: ls -R .
+  #       run: ls -R -I node_modules -I target .
   #       shell: bash
   #     - name: Test bindings
   #       run: yarn test
@@ -271,13 +271,15 @@ jobs:
           cache: yarn
       - name: Install dependencies
         run: yarn install
+      - name: Build ts
+        run: yarn build:ts
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
           name: bindings-x86_64-unknown-linux-gnu
           path: .
       - name: List packages
-        run: ls -R .
+        run: ls -R -I node_modules -I target .
         shell: bash
       - name: Test bindings
         run: docker run --rm -v $(pwd):/build -w /build node:${{ matrix.node }}-slim yarn test
@@ -305,13 +307,15 @@ jobs:
         run: |
           yarn config set supportedArchitectures.libc "musl"
           yarn install
+      - name: Build ts
+        run: yarn build:ts
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
           name: bindings-x86_64-unknown-linux-musl
           path: .
       - name: List packages
-        run: ls -R .
+        run: ls -R -I node_modules -I target .
         shell: bash
       - name: Test bindings
         run: docker run --rm -v $(pwd):/build -w /build node:${{ matrix.node }}-alpine yarn test
@@ -335,13 +339,15 @@ jobs:
           name: bindings-aarch64-unknown-linux-gnu
           path: .
       - name: List packages
-        run: ls -R .
+        run: ls -R -I node_modules -I target .
         shell: bash
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm64"
           yarn config set supportedArchitectures.libc "glibc"
           yarn install
+      - name: Build ts
+        run: yarn build:ts
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
@@ -369,13 +375,15 @@ jobs:
           name: bindings-aarch64-unknown-linux-musl
           path: .
       - name: List packages
-        run: ls -R .
+        run: ls -R -I node_modules -I target .
         shell: bash
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm64"
           yarn config set supportedArchitectures.libc "musl"
           yarn install
+      - name: Build ts
+        run: yarn build:ts
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
@@ -409,12 +417,14 @@ jobs:
           name: bindings-armv7-unknown-linux-gnueabihf
           path: .
       - name: List packages
-        run: ls -R .
+        run: ls -R -I node_modules -I target .
         shell: bash
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm"
           yarn install
+      - name: Build ts
+        run: yarn build:ts
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
