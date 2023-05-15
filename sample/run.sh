@@ -1,7 +1,9 @@
 #! /bin/bash
 
-echo "server start..."
+echo "sample vsock server start..."
+
 cd "/app/" && npm start
-echo "server stopped."
+
+echo "sample vsock server stopped."
 
 sleep 30

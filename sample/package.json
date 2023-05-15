@@ -3,6 +3,7 @@
     "version": "0.0.1",
     "main": "server.js",
     "scripts": {
+      "build": "tsc -p tsconfig.json",
       "start": "node /app/sample/server.js"
     }
   }

@@ -119,6 +119,10 @@ dist
 /target
 Cargo.lock
 
+sample/**/*.js
+index.d.ts
+index.js
+
 *.node
 *.eif
 .pnp.*

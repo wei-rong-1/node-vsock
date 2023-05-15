@@ -1,6 +1,6 @@
 {
   "name": "node-vsock-linux-arm-gnueabihf",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "os": [
     "linux"
   ],
@@ -12,6 +12,13 @@
     "node-vsock.linux-arm-gnueabihf.node"
   ],
   "description": "A Node.js addon for VSOCK socket.",
+  "keywords": [
+    "VSOCK",
+    "Sockets",
+    "AWS Nitro Enclave",
+    "VMWare",
+    "node-addon"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">= 11.8.0"

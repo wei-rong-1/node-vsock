@@ -4,13 +4,9 @@
     "strict": true,
     "moduleResolution": "node",
     "module": "CommonJS",
-    "declaration": true,
-    "sourceMap": false,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
   },
-  "include": ["./*.ts"],
+  "include": ["*.ts"],
   "exclude": ["node_modules"]
 }
