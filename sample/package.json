@@ -1,9 +1,17 @@
 {
-    "name": "sample",
-    "version": "0.0.1",
-    "main": "server.js",
-    "scripts": {
-      "build": "tsc -p tsconfig.json",
-      "start": "node /app/sample/server.js"
-    }
+  "name": "sample",
+  "version": "0.0.1",
+  "main": "server.js",
+  "scripts": {
+    "preinstall": "./build.sh preinstall",
+    "build:all": "./build.sh all",
+    "build": "tsc -p tsconfig.json",
+    "start": "node ./server.js"
+  },
+  "dependencies": {
+    "node-vsock": "file:./tmp/node-vsock.tgz"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
   }
+}

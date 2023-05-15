@@ -1,4 +1,4 @@
-import { VsockSocket } from "../index"
+import { VsockSocket } from "node-vsock"
 
 function sleep(s:number) {
   return new Promise((resolve) => {

@@ -15,7 +15,9 @@ env:
 
 ignorePatterns:
   - index.js
-  - dist/**/*
+  - addon.js
+  - index.d.ts
+  - addon.d.ts
   - __test__/**/*
   - sample/**/*
 
