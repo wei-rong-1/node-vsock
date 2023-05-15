@@ -338,16 +338,14 @@ jobs:
         with:
           name: bindings-aarch64-unknown-linux-gnu
           path: .
-      - name: List packages
-        run: ls -R -I node_modules -I target .
-        shell: bash
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm64"
           yarn config set supportedArchitectures.libc "glibc"
           yarn install
-      - name: Build ts
-        run: yarn build:ts
+      - name: List packages
+        run: ls -R -I node_modules -I target .
+        shell: bash
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
@@ -360,6 +358,7 @@ jobs:
           options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build'
           run: |
             set -e
+            yarn build:ts
             yarn test
             ls -la
   test-linux-aarch64-musl-binding:
@@ -374,16 +373,14 @@ jobs:
         with:
           name: bindings-aarch64-unknown-linux-musl
           path: .
-      - name: List packages
-        run: ls -R -I node_modules -I target .
-        shell: bash
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm64"
           yarn config set supportedArchitectures.libc "musl"
           yarn install
-      - name: Build ts
-        run: yarn build:ts
+      - name: List packages
+        run: ls -R -I node_modules -I target .
+        shell: bash
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
@@ -396,7 +393,9 @@ jobs:
           options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build'
           run: |
             set -e
+            yarn build:ts
             yarn test
+            ls -la
   test-linux-arm-gnueabihf-binding:
     name: Test bindings on armv7-unknown-linux-gnueabihf - node@${{ matrix.node }}
     needs:
@@ -416,15 +415,15 @@ jobs:
         with:
           name: bindings-armv7-unknown-linux-gnueabihf
           path: .
-      - name: List packages
-        run: ls -R -I node_modules -I target .
-        shell: bash
       - name: Install dependencies
         run: |
           yarn config set supportedArchitectures.cpu "arm"
           yarn install
       - name: Build ts
         run: yarn build:ts
+      - name: List packages
+        run: ls -R -I node_modules -I target .
+        shell: bash
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
@@ -437,6 +436,7 @@ jobs:
           options: '--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build'
           run: |
             set -e
+            yarn build:ts
             yarn test
             ls -la
   publish:
