@@ -53,7 +53,7 @@
   "devDependencies": {
     "@napi-rs/cli": "^2.14.6",
     "@swc-node/register": "^1.5.5",
-    "@swc/core": "^1.3.32",
+    "@swc/core": "^1.3.58",
     "@taplo/cli": "^0.5.2",
     "@types/node": "^20.1.2",
     "@typescript-eslint/eslint-plugin": "^5.50.0",
@@ -91,7 +91,7 @@
     "timeout": "2m",
     "workerThreads": false,
     "environmentVariables": {
-      "TS_NODE_PROJECT": "./__test__/tsconfig.json"
+      "TS_NODE_PROJECT": "./tsconfig.json"
     }
   },
   "prettier": {

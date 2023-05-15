@@ -358,6 +358,8 @@ jobs:
           options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build'
           run: |
             set -e
+            yarn remove @swc/core
+            yarn add @swc/core
             yarn build:ts
             yarn test
             ls -la
@@ -393,6 +395,8 @@ jobs:
           options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build'
           run: |
             set -e
+            yarn remove @swc/core
+            yarn add @swc/core
             yarn build:ts
             yarn test
             ls -la
@@ -436,6 +440,8 @@ jobs:
           options: '--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build'
           run: |
             set -e
+            yarn remove @swc/core
+            yarn add @swc/core
             yarn build:ts
             yarn test
             ls -la
