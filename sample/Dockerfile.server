@@ -5,9 +5,9 @@ RUN mkdir -p /app
 
 WORKDIR /app
 
-RUN mkdir -p node_modules/node-vsock
+RUN mkdir -p node_modules
 
-COPY node_modules/node-vsock ./node_modules/
+COPY node_modules ./node_modules/
 COPY tmp/*.node ./node_modules/node-vsock/
 COPY server.js .
 COPY package.json .
