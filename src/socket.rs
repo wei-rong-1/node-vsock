@@ -23,7 +23,7 @@ const BUF_MAX_LEN: usize = 8192;
 const BACKLOG: usize = 128;
 
 // Maximum number of connection attempts
-const MAX_CONNECTION_ATTEMPTS: usize = 5;
+const MAX_CONNECTION_ATTEMPTS: u32 = 5;
 
 #[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone)]
 enum State {
@@ -102,7 +102,12 @@ impl VsockSocket {
   }
 
   #[napi]
-  pub fn connect(&mut self, cid: JsNumber, port: JsNumber) -> Result<()> {
+  pub fn connect(
+    &mut self,
+    cid: JsNumber,
+    port: JsNumber,
+    max_connection_attempts: Option<JsNumber>,
+  ) -> Result<()> {
     let cid = cid.get_uint32()?;
     let port = port.get_uint32()?;
     let sockaddr = VsockAddr::new(cid, port);
@@ -110,9 +115,14 @@ impl VsockSocket {
     let emit_error = self.thread_safe_emit_error()?;
     let emit_connect = self.thread_safe_emit_connect()?;
 
+    let max_connection_attempts: u32 = match max_connection_attempts {
+      Some(max_connection_attempts) => max_connection_attempts.get_uint32()?,
+      None => MAX_CONNECTION_ATTEMPTS,
+    };
+
     thread::spawn(move || {
       let mut err_msg: Option<String> = None;
-      for i in 0..MAX_CONNECTION_ATTEMPTS {
+      for i in 0..max_connection_attempts {
         match connect(fd, &sockaddr) {
           Ok(_) => {
             emit_connect.call(Ok(()), ThreadsafeFunctionCallMode::Blocking);

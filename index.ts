@@ -93,12 +93,12 @@ export class VsockSocket extends EventEmitter {
     this.on('end', this.onEnd)
   }
 
-  connect(cid: number, port: number, connectCallback?: Callback) {
+  connect(cid: number, port: number, connectCallback?: Callback, options?: { maxConnectionAttempts?: number }) {
     this.checkDestroyed()
     this.connecting = true
     this.connectCallback = connectCallback
 
-    this.socket.connect(cid, port)
+    this.socket.connect(cid, port, options?.maxConnectionAttempts)
   }
 
   writeSync(buf: Buffer) {

@@ -6,7 +6,7 @@
 export class VsockSocket {
   constructor(emitFn: (...args: any[]) => any, fd?: number | undefined | null)
   listen(port: number): void
-  connect(cid: number, port: number): void
+  connect(cid: number, port: number, maxConnectionAttempts?: number): void
   end(): void
   shutdown(): void
   close(): void
