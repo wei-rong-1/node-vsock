@@ -69,6 +69,8 @@ export class VsockSocket extends EventEmitter {
   private isShutdown = false
   private isEnd = false
 
+  private maxConnectionAttempts?: number
+
   constructor(fd?: number) {
     super()
 
@@ -93,12 +95,16 @@ export class VsockSocket extends EventEmitter {
     this.on('end', this.onEnd)
   }
 
-  connect(cid: number, port: number, connectCallback?: Callback, options?: { maxConnectionAttempts?: number }) {
+  setMaxConnectionAttempts(maxConnectionAttempts: number) {
+    this.maxConnectionAttempts = maxConnectionAttempts
+  }
+
+  connect(cid: number, port: number, connectCallback?: Callback) {
     this.checkDestroyed()
     this.connecting = true
     this.connectCallback = connectCallback
 
-    this.socket.connect(cid, port, options?.maxConnectionAttempts)
+    this.socket.connect(cid, port, this.maxConnectionAttempts)
   }
 
   writeSync(buf: Buffer) {
