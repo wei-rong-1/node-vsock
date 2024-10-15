@@ -38,6 +38,7 @@ pub struct VsockSocket {
   fd: RawFd,
   emitter: Emitter,
   state: State,
+  max_connection_attempts: u32,
 }
 
 #[napi]
@@ -59,6 +60,7 @@ impl VsockSocket {
       fd,
       emitter: Emitter::new(env, emit_fn)?,
       state: State::Initialized,
+      max_connection_attempts: MAX_CONNECTION_ATTEMPTS,
     })
   }
 
@@ -102,12 +104,21 @@ impl VsockSocket {
   }
 
   #[napi]
-  pub fn connect(
-    &mut self,
-    cid: JsNumber,
-    port: JsNumber,
-    max_connection_attempts: Option<JsNumber>,
-  ) -> Result<()> {
+  pub fn set_max_connection_attempts(&mut self, max_connection_attempts: JsNumber) -> Result<()> {
+    let max_connection_attempts = max_connection_attempts.get_uint32()?;
+    if max_connection_attempts < 1 {
+      return Err(error(
+        "max_connection_attempts must be greater than 0".to_string(),
+      ));
+    }
+
+    self.max_connection_attempts = max_connection_attempts;
+
+    Ok(())
+  }
+
+  #[napi]
+  pub fn connect(&mut self, cid: JsNumber, port: JsNumber) -> Result<()> {
     let cid = cid.get_uint32()?;
     let port = port.get_uint32()?;
     let sockaddr = VsockAddr::new(cid, port);
@@ -115,10 +126,7 @@ impl VsockSocket {
     let emit_error = self.thread_safe_emit_error()?;
     let emit_connect = self.thread_safe_emit_connect()?;
 
-    let max_connection_attempts: u32 = match max_connection_attempts {
-      Some(max_connection_attempts) => max_connection_attempts.get_uint32()?,
-      None => MAX_CONNECTION_ATTEMPTS,
-    };
+    let max_connection_attempts = self.max_connection_attempts;
 
     thread::spawn(move || {
       let mut err_msg: Option<String> = None;
