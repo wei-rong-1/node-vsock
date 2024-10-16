@@ -13,4 +13,5 @@ export class VsockSocket {
   startRecv(): void
   writeText(data: string): void
   writeBuffer(data: Buffer): void
+  setMaxConnectionAttempts(maxConnectionAttempts: number): void
 }

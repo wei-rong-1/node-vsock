@@ -93,6 +93,10 @@ export class VsockSocket extends EventEmitter {
     this.on('end', this.onEnd)
   }
 
+  setMaxConnectionAttempts(maxConnectionAttempts: number) {
+    this.socket.setMaxConnectionAttempts(maxConnectionAttempts)
+  }
+
   connect(cid: number, port: number, connectCallback?: Callback) {
     this.checkDestroyed()
     this.connecting = true
