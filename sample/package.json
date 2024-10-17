@@ -1,6 +1,6 @@
 {
   "name": "sample",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "server.js",
   "scripts": {
     "preinstall": "./build.sh preinstall",
