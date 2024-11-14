@@ -12,6 +12,7 @@ use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::thread;
+use std::env;
 
 // VSOCK defaut listen cid
 const VMADDR_CID_ANY: u32 = 0xFFFFFFFF;
@@ -24,6 +25,8 @@ const BACKLOG: usize = 128;
 
 // Maximum number of connection attempts
 const MAX_CONNECTION_ATTEMPTS: u32 = 5;
+
+const NODE_VSOCK_DEBUG_EV: &str = "NODE_VSOCK_DEBUG";
 
 #[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone)]
 enum State {
@@ -80,12 +83,20 @@ impl VsockSocket {
     let emit_connection = self.thread_safe_emit_connection()?;
 
     thread::spawn(move || loop {
-      println!("rs before accept");
+      let dbg = env::var(NODE_VSOCK_DEBUG_EV).is_ok();
+      macro_rules! debug {
+        ($($rest:tt)*) => {
+          if dbg {
+              std::println!($($rest)*);
+          }
+        }
+      }
+      debug!("rs before accept");
 
       let fd = match accept(server_fd) {
         Ok(fd) => fd,
         Err(err) => {
-          println!("rs accept err {0}", err);
+          debug!("rs accept err {0}", err);
 
           emit_error.call(
             Ok(format!("Accept connection failed: {0}", err)),
@@ -95,7 +106,7 @@ impl VsockSocket {
         }
       };
 
-      println!("rs accept emit");
+      debug!("rs accept emit");
 
       emit_connection.call(Ok(fd), ThreadsafeFunctionCallMode::Blocking);
     });
@@ -204,7 +215,15 @@ impl VsockSocket {
     let emit_end = self.thread_safe_emit_end()?;
 
     thread::spawn(move || loop {
-      println!("rs before recv length");
+      let dbg = env::var(NODE_VSOCK_DEBUG_EV).is_ok();
+      macro_rules! debug {
+        ($($rest:tt)*) => {
+          if dbg {
+              std::println!($($rest)*);
+          }
+        }
+      }
+      debug!("rs before recv length");
 
       let mut buf: Vec<u8> = vec![0u8; BUF_MAX_LEN];
       let mut ret: i32 = -1;
@@ -228,7 +247,7 @@ impl VsockSocket {
         Ordering::Greater => {
           let size = ret as usize;
           let buf = buf[0..size].to_vec();
-          println!("rs emit data {0}", String::from_utf8(buf.clone()).unwrap());
+          debug!("rs emit data {0}", String::from_utf8(buf.clone()).unwrap());
           emit_data.call(Ok(buf), ThreadsafeFunctionCallMode::Blocking);
         }
         Ordering::Less => {
